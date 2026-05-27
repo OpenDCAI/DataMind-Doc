@@ -8,8 +8,8 @@ config:
     background: tint-plate
     hero:
       name: DataMind
-      tagline: Unified retrieval agent (v0.2)
-      text: "KB · Graph · DB · Skills · Memory — one agent, every source."
+      tagline: Composable inference-time data framework (v0.3 preview · pip install datamind)
+      text: "KB · Graph · DB · Skills · Memory · Hooks — one agent, every source."
       actions:
         -
           theme: brand
@@ -22,7 +22,7 @@ config:
         -
           theme: alt
           text: Github →
-          link: https://github.com/your-org/DataMind
+          link: https://github.com/OpenDCAI/DataMind
   -
     type: features
     features:
@@ -43,11 +43,11 @@ config:
         icon: carbon:tools
         details: "SDK-style .claude/skills/<name>/SKILL.md manifests for knowledge skills; safe Python code skills (calculator, unit conversion, …)."
       -
-        title: Memory
+        title: Memory (scope-typed v0.3)
         icon: carbon:ai-status-in-progress
-        details: Short-term rolling window + SQLite long-term with cosine recall + live LLM fact extraction at turn boundary.
+        details: Three scopes (global / profile / session) plus typed kinds. Short-term rolling window + SQLite long-term with cosine recall + live LLM fact extraction.
       -
-        title: Agent & Server
-        icon: carbon:machine-learning-model
-        details: Self-written tool-use loop against any Anthropic-compatible gateway. Real SSE streaming via FastAPI. No claude CLI dependency.
+        title: Hooks (sandboxed v0.3)
+        icon: carbon:security
+        details: HookChain intercepts every tool call — Allow / Deny / AskUser / Rewrite. Built-in destructive-SQL gate, path allow-list, tamper-evident audit log.
 ---

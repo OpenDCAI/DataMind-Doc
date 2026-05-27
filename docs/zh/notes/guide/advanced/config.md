@@ -7,7 +7,7 @@ createTime: 2026/03/30 23:43:41
 
 # 配置说明
 
-DataMind v0.2 使用嵌套 [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)，前缀 `DATAMIND__`，分层用双下划线：
+DataMind 使用嵌套 [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)，前缀 `DATAMIND__`，分层用双下划线：
 
 ```bash
 DATAMIND__<section>__<field>=value

@@ -14,24 +14,42 @@ createTime: 2026/03/23 00:55:54
 - Optional: MySQL or PostgreSQL client libs — only if you point the `db` capability at one of them.
 
 ::: tip
-DataMind v0.2 does **not** require the `claude` CLI or `claude-agent-sdk`. We talk to the gateway via the official `anthropic` Python SDK — some environments ship a vendor-rebranded `claude` binary that ignores `ANTHROPIC_API_KEY`, so we sidestep that entirely.
+DataMind does **not** require the `claude` CLI or `claude-agent-sdk` (the SDK backend is opt-in). The default loop talks to the gateway via the official `anthropic` Python SDK — some environments ship a vendor-rebranded `claude` binary that ignores `ANTHROPIC_API_KEY`, so we sidestep that entirely.
 :::
 
 ## 2. Install
 
-```bash
-git clone https://github.com/your-org/DataMind.git
-cd DataMind
-python -m venv .venv && source .venv/bin/activate
+### From PyPI (recommended)
 
-# Install the v0.2 package
-pip install -e .
+```bash
+pip install datamind
 
 # Optional extras
-pip install -e '.[mysql]'        # pymysql + cryptography
-pip install -e '.[huggingface]'  # sentence-transformers for local embeddings
-pip install -e '.[dev]'          # pytest + pytest-asyncio
+pip install 'datamind[mysql]'         # MySQL dialect
+pip install 'datamind[postgres]'      # PostgreSQL dialect
+pip install 'datamind[voyage]'        # Voyage embeddings
+pip install 'datamind[huggingface]'   # Local BGE / e5 embeddings
+pip install 'datamind[dev]'           # pytest + build + twine
 ```
+
+`pip install datamind` ships the runtime code, the browser UI (`datamind/static/app.html`), and a default skill catalog (`code-review`, `db-ops-sop`) so `datamind chat` and `python -m uvicorn datamind.server:app` work without cloning the repo.
+
+::: warning v0.3.0 is a preview release
+Architecture and core capabilities are functional, but BYOP HTTP sinks
+and end-to-end MySQL/Postgres validation are still in progress. Pilot
+in an isolated profile before pointing at production data.
+:::
+
+### From source (developers)
+
+```bash
+git clone https://github.com/OpenDCAI/DataMind.git
+cd DataMind
+python -m venv .venv && source .venv/bin/activate
+pip install -e '.[dev]'
+```
+
+The repo-level `static/` and `.claude/skills/` are authoritative for development; the server prefers them when running from a checkout and falls back to the bundled package copies when running from a pip install.
 
 ## 3. Configure
 

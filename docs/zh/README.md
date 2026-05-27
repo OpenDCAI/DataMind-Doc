@@ -8,8 +8,8 @@ config:
     background: tint-plate
     hero:
       name: DataMind
-      tagline: 统一检索型 Agent（v0.2）
-      text: "KB · Graph · DB · Skills · Memory —— 一个 Agent 打通所有数据源"
+      tagline: 可组合的 inference-time data 框架（v0.3 试用版 · pip install datamind）
+      text: "KB · Graph · DB · Skills · Memory · Hooks —— 一个 Agent 打通所有数据源"
       actions:
         -
           theme: brand
@@ -22,7 +22,7 @@ config:
         -
           theme: alt
           text: Github →
-          link: https://github.com/your-org/DataMind
+          link: https://github.com/OpenDCAI/DataMind
   -
     type: features
     features:
@@ -43,11 +43,11 @@ config:
         icon: carbon:tools
         details: SDK 风格 .claude/skills/<name>/SKILL.md 知识型 skill + 代码型 skill（计算器、单位换算等）
       -
-        title: Memory
+        title: Memory（v0.3 scope-typed）
         icon: carbon:ai-status-in-progress
-        details: 短期滚动窗口 + SQLite 长期语义记忆 + 每轮 LLM 事实抽取
+        details: 三层 scope（global / profile / session）+ 类型化 kind；短期滚动窗口 + SQLite 长期语义记忆 + LLM 事实抽取
       -
-        title: Agent 与 Server
-        icon: carbon:machine-learning-model
-        details: 自写 tool-use 循环，对接任意 Anthropic 兼容网关；FastAPI 真 SSE 流式输出；不依赖 claude CLI
+        title: Hooks（v0.3 沙盒化）
+        icon: carbon:security
+        details: HookChain 拦截每次 tool 调用 —— Allow / Deny / AskUser / Rewrite；内置 destructive SQL 拦截、路径白名单、可校验 audit log
 ---

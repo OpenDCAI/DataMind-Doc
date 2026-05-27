@@ -139,7 +139,7 @@ from the raw turn "I'm moving to Shenzhen next month and will start jogging in t
 
 ## 6. Enterprise demo — `hello_enterprise` (recommended)
 
-The flagship v0.2 demo: a **medium-sized realistic profile** + 8 cross-backend complex questions.
+The flagship demo (introduced in v0.2, still used in v0.3): a **medium-sized realistic profile** + 8 cross-backend complex questions.
 
 ### 6.1 Seed once
 

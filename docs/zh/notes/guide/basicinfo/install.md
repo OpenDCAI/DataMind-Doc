@@ -14,24 +14,40 @@ createTime: 2026/03/23 00:55:54
 - 可选：MySQL / PostgreSQL 客户端库（只有当 `db` 指向这些后端时才需要）
 
 ::: tip
-DataMind v0.2 **不需要** `claude` CLI 或 `claude-agent-sdk`。我们通过官方 `anthropic` Python SDK 直接对接网关——某些环境里的 `claude` 是被厂商改过的二进制，会忽略 `ANTHROPIC_API_KEY`，我们彻底绕开了这个问题。
+DataMind **不需要** `claude` CLI 或 `claude-agent-sdk`（SDK backend 可选）。默认循环通过官方 `anthropic` Python SDK 直接对接网关——某些环境里的 `claude` 是被厂商改过的二进制，会忽略 `ANTHROPIC_API_KEY`，我们彻底绕开了这个问题。
 :::
 
 ## 2. 安装
 
-```bash
-git clone https://github.com/your-org/DataMind.git
-cd DataMind
-python -m venv .venv && source .venv/bin/activate
+### 从 PyPI 安装（推荐）
 
-# 安装 v0.2 包
-pip install -e .
+```bash
+pip install datamind
 
 # 可选 extras
-pip install -e '.[mysql]'        # pymysql + cryptography
-pip install -e '.[huggingface]'  # sentence-transformers（本地 embedding）
-pip install -e '.[dev]'          # pytest + pytest-asyncio
+pip install 'datamind[mysql]'         # MySQL dialect
+pip install 'datamind[postgres]'      # PostgreSQL dialect
+pip install 'datamind[voyage]'        # Voyage embeddings
+pip install 'datamind[huggingface]'   # 本地 BGE / e5 embedding
+pip install 'datamind[dev]'           # pytest + build + twine
 ```
+
+`pip install datamind` 会一并 ship 运行时代码、浏览器 UI（`datamind/static/app.html`）和默认 skill catalog（`code-review`、`db-ops-sop`），`datamind chat` 和 `python -m uvicorn datamind.server:app` 都不用 clone 仓库就能跑。
+
+::: warning v0.3.0 是试用版（preview）
+架构和核心能力已经可用，但 BYOP HTTP sinks 和 MySQL/Postgres 端到端验证仍在做。生产环境用户请先在隔离 profile 试点再切真实数据。
+:::
+
+### 从源码安装（开发者）
+
+```bash
+git clone https://github.com/OpenDCAI/DataMind.git
+cd DataMind
+python -m venv .venv && source .venv/bin/activate
+pip install -e '.[dev]'
+```
+
+仓库根的 `static/` 和 `.claude/skills/` 是开发权威源；server 跑在 checkout 时优先用仓库版本，跑在 pip 安装环境时 fallback 到包内捆绑版本。
 
 ## 3. 配置
 

@@ -7,10 +7,10 @@ createTime: 2026/03/30 23:43:20
 
 # Benchmark
 
-`benchmark/` 包提供并发推理测评，调用 Python API（不走 HTTP）。它是为 **v0.1 legacy 栈** 写的，现在仍能用；v0.2 原生的 benchmark 会在后续 Phase 加上。
+`benchmark/` 包提供并发推理测评，调用 Python API（不走 HTTP）。它是为 **v0.1 legacy 栈** 写的，现在仍能用；面向 v0.2 / v0.3 新 `datamind.agent.AgentLoop` 的等价 runner 会在后续 Phase 加上。
 
 ::: tip
-v0.2 的端到端功能验证由 `hello_<cap>.py` 冒烟脚本和 `pytest datamind/tests/` 覆盖。`benchmark/` 用来大规模跑吞吐 / 准确率。
+v0.2 / v0.3 的端到端功能验证由 `hello_<cap>.py` 冒烟脚本和 `pytest datamind/tests/`（133 个测试，不依赖网络）覆盖。`benchmark/` 用来大规模跑吞吐 / 准确率。
 :::
 
 ## 特性
@@ -128,4 +128,4 @@ SIMILARITY_TOP_K=5 python -m benchmark.run --questions data/bench/2wiki.jsonl
 
 ## Roadmap
 
-v0.2 原生的 benchmark（直接调 `AgentLoop.run_turn` / `/api/chat`，准确统计 tool_use）会在后续 Phase 补上。JSONL 题集格式和输出 JSON 格式保持一致，旧结果文件仍可继续用。
+面向 v0.2 / v0.3 新 `AgentLoop` 的 benchmark（直接调 `AgentLoop.run_turn` / `/api/chat`，准确统计 tool_use）会在后续 Phase 补上。JSONL 题集格式和输出 JSON 格式保持一致，旧结果文件仍可继续用。

@@ -133,7 +133,7 @@ python -m datamind.scripts.hello_memory
 
 ## 6. Enterprise demo — `hello_enterprise`（推荐重点看）
 
-这是 v0.2 的旗舰演示，用一个**中等规模真实数据**的 profile 跑 8 个跨后端复杂问题。
+这是 v0.2 / v0.3 的旗舰演示（v0.3 继续沿用），用一个**中等规模真实数据**的 profile 跑 8 个跨后端复杂问题。
 
 ### 6.1 一次种好数据
 
