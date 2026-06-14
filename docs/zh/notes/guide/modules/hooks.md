@@ -92,6 +92,19 @@ ok, first_bad, n = verify_audit_log("storage/customer-a/audit.jsonl")
 
 参数里 key 命中 secret 模式（`api_key` / `password` / `token` / `secret` / `authorization` / `bearer` ...）的字段在写入前被替换为 `[REDACTED]`。
 
+## 两个 backend 都生效（native & sdk）
+
+HookChain 在**两个** agent-loop backend 上都强制执行，用的是同一个 chain 实例、同样的 Allow / Deny / AskUser / Rewrite 决策：
+
+| Backend | chain 跑在哪 |
+|---|---|
+| `native` | loop dispatch 的咽喉处，tool handler 执行前 |
+| `sdk`（`claude-agent-sdk` + CCR） | 每个进程内 MCP tool wrapper 里面 |
+
+SDK 拥有它自己的外层控制循环，DataMind 没法在那里插一个单一 dispatch 点。于是每个 DataMind 工具通过 MCP wrapper 桥接进 SDK，HookChain 就跑在这个 wrapper 内部——`Deny` 和 `AskUser` 在 handler 执行前短路成结构化 tool_result，行为和 `native` 完全一致。
+
+> 别和 SDK **自己的** `PreToolUse` / `PostToolUse` hook API 搞混——那是另一套机制。DataMind 的安全 HookChain 不管你选哪个 backend 都会强制执行。
+
 ## 配置
 
 ```bash

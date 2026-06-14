@@ -107,6 +107,26 @@ Secret-shaped fields (`api_key`, `password`, `token`, `secret`,
 `authorization`, `bearer`, ...) in args are replaced with `[REDACTED]`
 before logging.
 
+## Backend parity (native & sdk)
+
+The HookChain is enforced on **both** agent-loop backends, with the same
+chain instance and the same Allow / Deny / AskUser / Rewrite decisions:
+
+| Backend | Where the chain runs |
+|---|---|
+| `native` | At the loop's dispatch chokepoint, before the tool handler |
+| `sdk` (`claude-agent-sdk` + CCR) | Inside each in-process MCP tool wrapper |
+
+The SDK owns its own outer control loop, so DataMind cannot interpose at a
+single dispatch point there. Instead every DataMind tool is bridged into
+the SDK through an MCP wrapper, and the HookChain runs inside that wrapper
+— `Deny` and `AskUser` short-circuit to a structured tool_result before
+the handler runs, exactly as on `native`.
+
+> Don't confuse this with the SDK's *own* `PreToolUse` / `PostToolUse`
+> hook API — that's a separate mechanism. DataMind's safety HookChain is
+> enforced regardless of which backend you select.
+
 ## Configuration
 
 ```bash
