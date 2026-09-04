@@ -8,7 +8,7 @@ config:
     background: tint-plate
     hero:
       name: DataMind
-      tagline: Write during inference. Retrieve with evidence.
+      tagline: Agents don't just retrieve. They write new data during inference.
       text: "StoreAgent × RetrieveAgent — one data plane for every source."
       actions:
         -

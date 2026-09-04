@@ -2,194 +2,191 @@
 title: 架构设计
 icon: material-symbols:auto-transmission-sharp
 permalink: /zh/guide/basicinfo/architecture/
-createTime: 2026/03/30 23:41:34
+createTime: 2026/09/04 21:41:09
 ---
 
-# 架构
+# v1.0.0 架构设计
+
+DataMind 不是把所有能力塞进一个“万能 Agent”，而是由三个边界清晰的部分组成：共享的 data plane、两个 role-scoped Agent，以及可替换的模型和 provider 适配层。
 
 ## 一张图
 
+```text
+                                  ┌────────────────────────────────────┐
+                                  │ Model gateway                      │
+                                  │ Anthropic / OpenAI-compatible      │
+                                  │ native loop  |  SDK + CCR (可选)   │
+                                  └────────────────▲───────────────────┘
+                                                   │ complete / stream
+┌──────────────────────┐             ┌─────────────┴─────────────┐
+│ CLI · HTTP · Python  │────────────▶│ DataMind facade           │
+│ /api/chat (SSE)      │             │ shared services + profile │
+└──────────────────────┘             └─────────────┬─────────────┘
+                                                   │
+                         ┌─────────────────────────┴─────────────────────────┐
+                         │                                                   │
+              ┌──────────▼──────────┐                             ┌──────────▼──────────┐
+              │ StoreAgent          │                             │ RetrieveAgent       │
+              │ ToolAccess.WRITE    │                             │ READ + UTILITY      │
+              │ 写入 + receipt       │                             │ 读取 + evidence     │
+              └──────────┬──────────┘                             └──────────┬──────────┘
+                         │                                                   │
+                         └────────────────┬──────────────────────────────────┘
+                                          ▼
+                         ┌────────────────────────────────────┐
+                         │ HookChain · tool dispatch           │
+                         │ Allow / Deny / AskUser / Rewrite   │
+                         │ post-hook: audit log               │
+                         └────────────────┬───────────────────┘
+                                          ▼
+                         ┌────────────────────────────────────┐
+                         │ Shared capability services          │
+                         │ KB · DB · Graph · Skills · Memory  │
+                         └────────────────────────────────────┘
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                        User (CLI · HTTP · SSE)                       │
-└───────────────┬──────────────────────────────────────────────────────┘
-                │
-          ┌─────▼────────────────────────────────────┐
-          │          datamind.agent.AgentLoop        │
-          │   system_prompt + tool schemas + 回合循环 │
-          └─────┬────────────────────────────────────┘
-                │  /v1/messages (流式, tool_use/result)
-          ┌─────▼────────────────────────────────────┐
-          │  Anthropic 兼容网关 (Claude)               │
-          └─────┬────────────────────────────────────┘
-                │
-  ┌─────────────┼─────────────┬───────────────┬───────────────┬────────────────┐
-┌─▼─────┐  ┌────▼────┐  ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐   ┌──────▼──────┐
-│  KB   │  │   DB    │  │   Graph   │   │  Skills   │   │  Memory   │   │  代码技能    │
-│Chroma │  │SQLAlch. │  │ NetworkX  │   │ SKILL.md  │   │  SQLite   │   │  (calc, …)   │
-│ +BM25 │  │SQLite / │  │ (JSON)    │   │ + Chroma  │   │ + 向量    │   │              │
-│ +RRF  │  │ MySQL / │  │           │   │           │   │           │   │              │
-└───────┘  └─────────┘  └───────────┘   └───────────┘   └───────────┘   └──────────────┘
-    │           │              │               │               │
-    └──────── EmbeddingProvider (OpenAI 兼容 / HuggingFace) ────┘
+
+### 共享 data plane
+
+`DataMind` facade 持有一组长生命周期服务和当前 profile。StoreAgent、RetrieveAgent 不各自创建数据库、向量库或图谱，而是共享同一组 service、registry、context 和日志，因此写入后可以在后续读取请求中被同一 profile 发现。
+
+### 两个明确的角色
+
+- **StoreAgent** 只拿到 `ToolAccess.WRITE` 工具。它负责把对话、文件、CSV 或结构化记录写进 KB、DB、Graph 或 Memory，并返回 `IngestReceipt`，而不是把写入结果藏在自然语言里。
+- **RetrieveAgent** 只拿到 `READ + UTILITY` 工具。它负责查询、检索、遍历、技能调用和记忆召回，输出统一的 `Evidence`，让答案能够回溯到来源。
+
+角色边界在 registry 和 dispatch 层由代码强制执行；模型即使提出了另一个角色没有的工具名，也不会获得该工具的执行权限。
+
+### HookChain 是跨切面控制点
+
+每次 tool 调用都会经过 HookChain。pre-hook 可以 `Allow`、`Deny`、`AskUser` 或 `Rewrite`，post-hook 可以写入结构化审计日志。内置规则覆盖 destructive SQL、路径白名单、工具访问控制和可校验的 audit log。Hooks 是安全与治理层，不是第六个 data surface。
+
+## 两条请求路径
+
+```text
+写入请求（DataMind.ingest / POST /api/store）
+  → StoreAgent loop
+  → WRITE registry
+  → HookChain.pre
+  → surface handler
+  → IngestLedger + receipt
+  → StoreAgent result
+
+读取请求（DataMind.query / POST /api/ask /api/chat）
+  → RetrieveAgent loop
+  → READ + UTILITY registry
+  → HookChain.pre
+  → surface handler
+  → evidence normalizer
+  → RetrieveAgent answer + evidence
 ```
 
-每个框都是一个 **Protocol（接口）**。每个具体类在一个 **Registry（注册表）** 里按字符串名字注册。Agent 只认接口，从不 import 具体类。
+`POST /api/store` 是显式写入入口；`POST /api/ask` 返回一次性 JSON；`POST /api/chat` 是 RetrieveAgent 的 SSE 流式入口。三者都在请求级别绑定 `RequestContext` 和 `trace_id`。
 
-## 核心层 — `datamind.core`
+写入和读取共享数据服务，但不是共享权限：一次 ingest 产生的 receipt 记录“写入了什么、落在哪个 surface、何时完成”；一次 query 产生的 evidence 记录“答案引用了哪些 source ref”。这两个对象是跨请求传递事实的稳定边界。
 
-### Protocols（`protocols.py`）
+## Agent 如何装配
 
-六个最小接口，定义一个能力**是什么**，而不是怎么做：
+`build_datamind(settings)` 是 v1.0.0 的 canonical builder，装配顺序如下：
 
-| Protocol | 职责 |
-|---|---|
-| `EmbeddingProvider` | `embed_texts([...])`, `embed_query(q)` |
-| `VectorStore` | `add / query / count / delete / reset / get_all_texts` |
-| `Retriever` | `aretrieve(query, top_k, filters)` |
-| `GraphStore` | `upsert_triples / search_entities / traverse / neighbors` |
-| `DatabaseDialect` | `build_engine / list_tables / describe / execute_readonly / is_destructive` |
-| `MemoryStore` | `save / recall / forget / list_namespaces` |
-
-### Registries（`registry.py`）
-
-每个可扩展维度一个注册表：
+1. 根据 `llm.protocol` 创建模型 client。内部 NL2SQL、query rewrite、memory fact extraction 和 graph extraction 复用同一 client contract。
+2. 创建 embedding、KB、DB、Graph、Skills、Memory 和 ingest services，收集到 `AgentServices`。
+3. 构建完整的 `ToolSpec` catalogue，再按 `ToolAccess` 生成 StoreAgent 与 RetrieveAgent 的 role-scoped registry。
+4. 给写入工具加 receipt wrapper，创建 HookChain、system prompt 和两个 agent loop，最后交给 `DataMind` facade。
 
 ```python
-@embedding_registry.register("voyage")
-class VoyageEmbedding: ...
+from datamind.agent import build_datamind
+from datamind.config import Settings
 
-# 用的时候：
-emb = embedding_registry.create("voyage", api_key=..., model=...)
+system = await build_datamind(Settings())
+try:
+    await system.ingest("记住：周报使用中文。")       # StoreAgent
+    result = await system.query("周报应该使用什么语言？")  # RetrieveAgent
+finally:
+    await system.aclose()
 ```
 
-未知名字抛 `ConfigError`，顺带列出所有已注册选项——输入错别字立即暴露。
+`build_agent()` 保留为兼容别名，但现在返回只读的 RetrieveAgent。需要明确写入权限时使用 `build_store_agent()`，或直接使用 `build_datamind()`。
 
-### Tool 框架（`tools.py`）
+## 模型与 loop 层
 
-`ToolSpec(name, description, input_schema, handler)` 就是 agent 需要的全部。`ToolRegistry.as_anthropic_tools()` 输出的就是 `/v1/messages` 的 `tools=[...]` JSON。
+模型和 Agent loop 通过 `datamind.core.protocols` 的 `TextModelClient` / `ToolCallingModelClient` 解耦：
 
-`metadata={"group": "kb"}` 只被系统提示的组装逻辑用来给模型描述工具清单。
+| 实现 | 线路 | 默认用途 |
+|---|---|---|
+| `AnthropicModelClient` | Anthropic `/v1/messages` | 默认 native loop |
+| `OpenAIChatCompletionsModelClient` | OpenAI `/v1/chat/completions` | OpenAI-compatible native loop |
 
-### Context（`context.py`）
-
-`RequestContext(session_id, profile, user_id, trace_id, extra)` —— 每个请求一个。替代 v0.1 的全局 `AppState`。日志层通过 `contextvars` 自动把 `trace_id` 打到每条 JSON 记录里。
-
-### Errors（`errors.py`）
-
-四层：`DataMindError` → `ConfigError` / `CapabilityError(capability, cause)` / `ExternalServiceError(service, status_code, cause)`。
-
-### Logging（`logging.py`）
-
-stderr 输出一行一条 JSON。绑定了 `RequestContext` 之后每条记录自动带 `trace_id / session_id / profile`。零重型依赖（只用了 stdlib `logging`）。
-
-## 能力层 — `datamind.capabilities`
-
-每个子包都遵循相同模式：
-
-```
-capabilities/<cap>/
-├── __init__.py           # 重新导出 service + tool 工厂
-├── service.py            # build_<cap>_service(settings) -> <cap>Service
-├── tools.py              # build_<cap>_tools(service) -> list[ToolSpec]
-└── providers/
-    ├── __init__.py       # import 每个 provider 模块
-    └── <backend>.py      # @<cap>_registry.register("name") class …
-```
-
-- **service** 是有状态的胶水——持有 Chroma client / SQLAlchemy engine / NetworkX graph，对外暴露清晰的 async 方法。
-- **tools** 把方法包成带 JSON schema 的 `ToolSpec`。
-- **providers** 是后端实现，新增 Postgres 就是在 `db/providers/postgres.py` 下加一个新文件 + 一个装饰器；其他文件不动。
-
-## Agent 层 — `datamind.agent`
-
-| 文件 | 作用 |
+| 文件 | 职责 |
 |---|---|
-| `loop.py` | tool-use 回合循环（`run_turn` + `stream_turn`） |
-| `options.py` | `build_agent(settings)` —— 把全部能力装配成一个 `DataMindAgent` |
-| `prompts.py` | 按分组生成系统提示 |
+| `agent/base.py` | `AgentEvent`、`AgentLoopConfig`、`AgentLoopProtocol` 等公共契约 |
+| `agent/loop_native.py` | 协议中立的默认循环，包含 Hook、预算、evidence/receipt 收集 |
+| `agent/loop_openai.py` | OpenAI wire path，复用 native 执行语义 |
+| `agent/loop_sdk.py` | 可选的 Claude Agent SDK + CCR / local MCP 适配 |
 
-### 单回合循环
+不同 loop 都提供 `run_turn`、`stream_turn` 和统一事件：`text`、`tool_use`、`tool_result`、`error`、`done`。因此 HTTP SSE、CLI 和 Python 调用不需要感知底层 provider。
 
-```
-    ┌─ user_message ─┐
-    │                │
-    ▼                │
-┌────────────────────▼─────────────────────────────────┐
-│ messages.create(system, tools, messages)              │
-└────────────────┬──────────────────────────────────────┘
-                 │
-        ┌────────▼────────────┐
-        │ stop_reason?        │
-        └────────┬────────────┘
-                 │
-       ┌─────────┴─────────┐
-       │                   │
-    tool_use           end_turn
-       │                   │
-       ▼                   └──► 返回最终文本
-┌──────────────────┐
-│ for each tool:   │
-│   on_tool_start  │
-│   spec.handler() │
-│   on_tool_end    │
-│   append result  │
-└───────┬──────────┘
-        │
-        └──► 继续循环（max_tool_turns 上限）
-```
+## Core 层
 
-Hooks（`on_tool_start`、`on_tool_end`）是下一期审计日志 / 权限检查的接入点。
+`datamind.core` 放置跨能力稳定契约，而不是具体后端：
 
-## 配置层 — `datamind.config`
+| Protocol / contract | 作用 |
+|---|---|
+| `TextModelClient` / `ToolCallingModelClient` | 文本补全和工具调用 |
+| `EmbeddingProvider` | 文本与查询向量化 |
+| `VectorStore` / `Retriever` | 向量存储与检索 |
+| `GraphStore` | 三元组写入、实体搜索、多跳遍历 |
+| `DatabaseDialect` | 建表、描述、只读执行和 destructive 判断 |
+| `MemoryStore` | 保存、召回、遗忘和 namespace 管理 |
+| `DataSurface` / `ToolAccess` | surface 类型和角色权限 |
+| `SourceRef` / `Evidence` | 来源和可回溯证据 |
+| `IngestReceipt` / `InferenceResult` | 写入回执和推理结果 |
 
-嵌套 `pydantic-settings`，每一块都是一个 `BaseModel`：
+`ToolSpec(name, description, input_schema, handler)` 是 loop 的最小工具单元。完整 catalogue 只创建一次，role registry 通过 metadata 做筛选，dispatch 前再由 `assert_access` 做一次权限校验。`RequestContext`、错误层级、结构化日志和 HookChain 也位于 core，保证 CLI、HTTP、SDK 使用同一套语义。
 
-```
+## 五个 data surface
+
+| Surface | 写入 | 读取 | 默认实现 |
+|---|---|---|---|
+| **KB / RAG** | 文件、文本、chunks | 混合检索、来源过滤 | Chroma + BM25 + RRF |
+| **Database** | CSV / records / schema | 只读 SQL、schema、NL2SQL | SQLAlchemy + SQLite；MySQL 可选 |
+| **Graph** | triples、文本抽取 | entity、neighbors、多跳 traverse | NetworkX + JSON |
+| **Skills** | `SKILL.md`、manifest、代码 skill | SOP 语义搜索和安全 utility | profile skills + 内置计算器/单位换算 |
+| **Memory** | facts、preferences、decisions、对话 | scope-aware recall / list | 短期滚动窗口 + SQLite 长期记忆 |
+
+`capabilities/ingest` 把 KB、DB、Graph 的写入动作串到同一个 receipt ledger；`capabilities/hooks` 则是所有 surface 共用的治理层。每个 capability 继续遵循 `service.py`、`tools.py`、`providers/` 的边界，替换后端不需要改 Agent loop。
+
+## 配置与 profile
+
+```text
 Settings
-├── llm          # api_base / api_key / model / fallback_model / timeout_s
+├── llm          # api_base / api_key / protocol / model / fallback_*
 ├── embedding    # provider / api_base / api_key / model / batch_size
 ├── retrieval    # strategy / top_k / chunk_size / chunk_overlap / rerank
 ├── graph        # backend / dsn / embed_entities
 ├── db           # dialect / dsn / read_only / row_limit / query_timeout_s
 ├── memory       # backend / dsn / short_term_turns / long_term_enabled
-├── data         # profile / base_dir  (自动派生 data_dir / storage_dir)
-└── logging      # level
+├── data         # profile / base_dir → data_dir + storage_dir
+├── agent        # backend / max_turns / token and wall-clock budgets
+└── hooks        # enabled / destructive_sql / path_allowlist / audit_log
 ```
 
-环境变量用双下划线嵌套：`DATAMIND__DB__DSN=mysql+pymysql://...`。切换 profile：
+环境变量使用双下划线分层：
 
 ```bash
-DATAMIND__DATA__PROFILE=customer_a python -m datamind chat
+DATAMIND__AGENT__BACKEND=native
+DATAMIND__LLM__PROTOCOL=anthropic
+DATAMIND__DATA__PROFILE=customer_a
 ```
 
-`data/profiles/customer_a/` 和 `storage/customer_a/` **一起切换**。
+切换 profile 会同时切换 `data/profiles/<profile>/` 和 `storage/<profile>/`。Profile 是数据隔离和命名空间，不是身份认证；公网部署仍需在反向代理或网关层补充认证、TLS、限流和网络隔离。
 
-## v0.1 → v0.2 替换对照表
+## 稳定性边界
 
-| v0.1 | v0.2 | 备注 |
-|---|---|---|
-| `core/bootstrap.py` 全局 `AppState` | `agent.options.build_agent()` | 无状态，可组合 |
-| `modules/rag/retriever.py` | `capabilities/kb/providers/{simple,multi_query,hybrid}_retriever.py` | 三种策略，注册表化 |
-| `modules/rag/indexer.py` | `capabilities/kb/indexer.py` | 功能相同，错误处理改进 |
-| `modules/database/database.py` | `capabilities/db/{service,providers}.py` | SQLite + MySQL；安全闸 |
-| `modules/graphrag/graph_rag.py` | `capabilities/graph/providers/networkx_store.py` | 持久化用 JSON（不是 pickle） |
-| `modules/memory/memory.py` | `capabilities/memory/{short_term,service,providers/sqlite_store}.py` | 三层 + 事实抽取 |
-| `modules/skills/*` | `capabilities/skills/{loader,service,code_skills}.py` + `.claude/skills/*/SKILL.md` | SDK 风格 manifest |
-| `server.py` / `main.py` | `datamind/server.py` + `datamind/cli.py` | 真 SSE，无全局变量，typer CLI |
+v1.0.0 的稳定 core 是 native backend + 本地 profile 存储。SDK/CCR、远程数据库方言和自定义 provider 属于 integration 路径，需要在目标环境单独验证。稳定 API、支持矩阵和公网安全边界见：
 
-**旧文件都还在，照样能跑。** 可以随时对照。
+- [稳定 API](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/STABLE_API.md)
+- [native / SDK 支持矩阵](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SUPPORT_MATRIX.md)
+- [公网部署安全边界](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SECURITY_BOUNDARIES.md)
+- [术语与概念](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/CONCEPTS.md)
 
-## 技术栈一览
-
-| 组件 | 技术 | 备注 |
-|---|---|---|
-| Agent 运行时 | `anthropic` SDK + 自写循环 | 不依赖 claude CLI |
-| LLM | Anthropic 兼容 `/v1/messages` | 流式 + tool_use |
-| Embedding | OpenAI 兼容 `/v1/embeddings` 或 HF 本地 | `openai_compatible` provider |
-| 向量库 | Chroma | `@vector_store_registry.register("chroma")` |
-| Graph | NetworkX + JSON 持久化 | Neo4j 将作为 provider 插入 |
-| RDBMS | SQLAlchemy 2.0 | SQLite + MySQL 内置 |
-| Memory | SQLite + 向量 cosine 召回 | Redis / Postgres 可作为 provider |
-| Server | FastAPI + 真 SSE | `python -m uvicorn datamind.server:app` |
-| CLI | `typer` + `rich` | `python -m datamind ...` |
+旧目录仍保留用于迁移和对照，但不属于 v1.0.0 的稳定 API。新增集成应优先使用 `build_datamind`、`DataMind.ingest/query`、`Evidence`、`IngestReceipt` 和 `core` protocols。

@@ -8,7 +8,7 @@ config:
     background: tint-plate
     hero:
       name: DataMind
-      tagline: 在推理时写入，在下一次提问中带证据取回。
+      tagline: Agent 不只会查数据，还能在推理时把新数据写进去。
       text: "StoreAgent × RetrieveAgent —— 一个数据面，连接所有来源。"
       actions:
         -

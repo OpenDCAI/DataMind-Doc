@@ -2,195 +2,186 @@
 title: Architecture
 icon: material-symbols:auto-transmission-sharp
 permalink: /en/guide/basicinfo/architecture/
-createTime: 2026/03/30 23:38:31
+createTime: 2026/09/04 21:42:06
 ---
 
-# Architecture
+# v1.0.0 architecture
+
+DataMind is not one do-everything agent. It has three clear boundaries: a shared data plane, two role-scoped agents, and replaceable model/provider adapters.
 
 ## One picture
 
+```text
+                                  ┌────────────────────────────────────┐
+                                  │ Model gateway                      │
+                                  │ Anthropic / OpenAI-compatible      │
+                                  │ native loop  |  SDK + CCR (opt.)   │
+                                  └────────────────▲───────────────────┘
+                                                   │ complete / stream
+┌──────────────────────┐             ┌─────────────┴─────────────┐
+│ CLI · HTTP · Python  │────────────▶│ DataMind facade           │
+│ /api/chat (SSE)      │             │ shared services + profile │
+└──────────────────────┘             └─────────────┬─────────────┘
+                                                   │
+                         ┌─────────────────────────┴─────────────────────────┐
+                         │                                                   │
+              ┌──────────▼──────────┐                             ┌──────────▼──────────┐
+              │ StoreAgent          │                             │ RetrieveAgent       │
+              │ ToolAccess.WRITE    │                             │ READ + UTILITY      │
+              │ writes + receipts   │                             │ reads + evidence    │
+              └──────────┬──────────┘                             └──────────┬──────────┘
+                         │                                                   │
+                         └────────────────┬──────────────────────────────────┘
+                                          ▼
+                         ┌────────────────────────────────────┐
+                         │ HookChain · tool dispatch           │
+                         │ Allow / Deny / AskUser / Rewrite   │
+                         │ post-hook: audit log               │
+                         └────────────────┬───────────────────┘
+                                          ▼
+                         ┌────────────────────────────────────┐
+                         │ Shared capability services          │
+                         │ KB · DB · Graph · Skills · Memory  │
+                         └────────────────────────────────────┘
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│                        User (CLI · HTTP · SSE)                       │
-└───────────────┬──────────────────────────────────────────────────────┘
-                │
-          ┌─────▼────────────────────────────────────┐
-          │          datamind.agent.AgentLoop        │
-          │   system_prompt + tool schemas + turn    │
-          └─────┬────────────────────────────────────┘
-                │  /v1/messages (streaming, tool_use/result)
-          ┌─────▼────────────────────────────────────┐
-          │  Anthropic-compatible gateway (Claude)    │
-          └─────┬────────────────────────────────────┘
-                │
-  ┌─────────────┼─────────────┬───────────────┬───────────────┬────────────────┐
-┌─▼─────┐  ┌────▼────┐  ┌─────▼─────┐   ┌─────▼─────┐   ┌─────▼─────┐   ┌──────▼──────┐
-│  KB   │  │   DB    │  │   Graph   │   │  Skills   │   │  Memory   │   │ Code tools  │
-│Chroma │  │SQLAlch. │  │ NetworkX  │   │ SKILL.md  │   │  SQLite   │   │  (calc, …)  │
-│ +BM25 │  │SQLite / │  │ (JSON)    │   │ + Chroma  │   │ + embed   │   │             │
-│ +RRF  │  │ MySQL /…│  │           │   │           │   │           │   │             │
-└───────┘  └─────────┘  └───────────┘   └───────────┘   └───────────┘   └─────────────┘
-    │           │              │               │               │
-    └──────── EmbeddingProvider (OpenAI-compat / HuggingFace) ──┘
+
+### The shared data plane
+
+The `DataMind` facade owns one long-lived set of services and the active profile. StoreAgent and RetrieveAgent do not create separate databases, vector stores, or graphs; they share services, registries, request context, and logging. A write can therefore be discovered by a later read in the same profile.
+
+### Two explicit roles
+
+- **StoreAgent** receives only `ToolAccess.WRITE` tools. It writes conversations, files, CSVs, or records into KB, DB, Graph, or Memory and returns an `IngestReceipt` instead of hiding the write outcome in prose.
+- **RetrieveAgent** receives only `READ + UTILITY` tools. It queries, retrieves, traverses, invokes skills, and recalls memory, returning normalized `Evidence` so an answer can be traced to its sources.
+
+The role boundary is enforced in registries and dispatch code. If a model asks for a tool owned by the other role, that tool is not executable.
+
+### HookChain is the cross-cutting control point
+
+Every tool call passes through HookChain. Pre-hooks can `Allow`, `Deny`, `AskUser`, or `Rewrite`; post-hooks can emit structured audit records. Built-in rules cover destructive SQL, path allow-listing, tool access, and verifiable audit logs. Hooks are the governance layer, not a sixth data surface.
+
+## Two request paths
+
+```text
+Write request (DataMind.ingest / POST /api/store)
+  → StoreAgent loop
+  → WRITE registry
+  → HookChain.pre
+  → surface handler
+  → IngestLedger + receipt
+  → StoreAgent result
+
+Read request (DataMind.query / POST /api/ask /api/chat)
+  → RetrieveAgent loop
+  → READ + UTILITY registry
+  → HookChain.pre
+  → surface handler
+  → evidence normalizer
+  → RetrieveAgent answer + evidence
 ```
 
-Every box is a **Protocol** (interface). Every concrete class is in a **Registry** under a short name. The agent knows only the interfaces — it never imports a concrete class.
+`POST /api/store` is the explicit write endpoint. `POST /api/ask` returns one JSON response, while `POST /api/chat` is the RetrieveAgent SSE streaming endpoint. All three bind a request-scoped `RequestContext` and `trace_id`.
 
-## Core layer — `datamind.core`
+Writes and reads share data services but not authority. An ingest produces a receipt describing what was written, to which surface, and when it completed. A query produces evidence describing which source refs support the answer. These objects are the stable cross-request fact boundary.
 
-### Protocols (`protocols.py`)
+## How the agents are assembled
 
-Six small interfaces that define what a capability **is**, not how it does the work.
+`build_datamind(settings)` is the canonical v1.0.0 builder:
 
-| Protocol | Responsibility |
-|---|---|
-| `EmbeddingProvider` | `embed_texts([...])`, `embed_query(q)` |
-| `VectorStore` | `add / query / count / delete / reset / get_all_texts` |
-| `Retriever` | `aretrieve(query, top_k, filters)` |
-| `GraphStore` | `upsert_triples / search_entities / traverse / neighbors` |
-| `DatabaseDialect` | `build_engine / list_tables / describe / execute_readonly / is_destructive` |
-| `MemoryStore` | `save / recall / forget / list_namespaces` |
-
-### Registries (`registry.py`)
-
-One registry per axis of extension:
+1. Create the model client from `llm.protocol`. NL2SQL, query rewriting, memory fact extraction, and graph extraction reuse the same client contract.
+2. Build embedding, KB, DB, Graph, Skills, Memory, and ingest services and collect them in `AgentServices`.
+3. Build one `ToolSpec` catalogue, then derive role-scoped registries from `ToolAccess`.
+4. Wrap write tools with receipt handling, create HookChain, prompts, and both agent loops, and return the `DataMind` facade.
 
 ```python
-@embedding_registry.register("voyage")
-class VoyageEmbedding: ...
+from datamind.agent import build_datamind
+from datamind.config import Settings
 
-# anywhere:
-emb = embedding_registry.create("voyage", api_key=..., model=...)
+system = await build_datamind(Settings())
+try:
+    await system.ingest("Remember: weekly reports use Chinese.")  # StoreAgent
+    result = await system.query("What language should weekly reports use?")  # RetrieveAgent
+finally:
+    await system.aclose()
 ```
 
-Unknown names raise `ConfigError` with the full list of registered options — typos are caught immediately.
+`build_agent()` remains as a compatibility alias, but it now returns a read-only RetrieveAgent. Use `build_store_agent()` when explicit write authority is needed, or use `build_datamind()` for the complete system.
 
-### Tool framework (`tools.py`)
+## Model and loop layers
 
-`ToolSpec(name, description, input_schema, handler)` is everything the agent loop needs. `ToolRegistry.as_anthropic_tools()` produces the exact JSON `/v1/messages` expects as `tools=[...]`.
+Models and agent loops are decoupled through `TextModelClient` and `ToolCallingModelClient` in `datamind.core.protocols`:
 
-Groups (`metadata={"group": "kb"}`) are used only by the system-prompt builder to describe the tool inventory to the model.
+| Implementation | Wire path | Default use |
+|---|---|---|
+| `AnthropicModelClient` | Anthropic `/v1/messages` | Default native loop |
+| `OpenAIChatCompletionsModelClient` | OpenAI `/v1/chat/completions` | OpenAI-compatible native loop |
 
-### Context (`context.py`)
-
-`RequestContext(session_id, profile, user_id, trace_id, extra)` — one per request. Replaces v0.1's global `AppState`. The logging layer picks it up via `contextvars` and stamps every JSON log record with `trace_id`.
-
-### Errors (`errors.py`)
-
-Four-tier hierarchy:
-`DataMindError` → `ConfigError` / `CapabilityError(capability, cause)` / `ExternalServiceError(service, status_code, cause)`.
-
-### Logging (`logging.py`)
-
-Structured JSON on stderr. Every record carries `trace_id / session_id / profile` automatically when a `RequestContext` is bound. No heavyweight deps (stdlib `logging`).
-
-## Capabilities layer — `datamind.capabilities`
-
-Each subpackage follows the same pattern:
-
-```
-capabilities/<cap>/
-├── __init__.py           # re-exports service + tool builder
-├── service.py            # build_<cap>_service(settings) -> <cap>Service
-├── tools.py              # build_<cap>_tools(service) -> list[ToolSpec]
-└── providers/
-    ├── __init__.py       # imports every provider module
-    └── <backend>.py      # @<cap>_registry.register("name") class …
-```
-
-- The **service** is the stateful glue — holds a Chroma client, SQLAlchemy engine, NetworkX graph — exposing clean async methods.
-- The **tools** module turns those methods into `ToolSpec`s with proper JSON schemas.
-- The **providers** module is where backends live. Adding Postgres is a new file under `db/providers/postgres.py` plus one decorator; no other file changes.
-
-## Agent layer — `datamind.agent`
-
-| File | Role |
+| File | Responsibility |
 |---|---|
-| `loop.py` | The tool-use loop (`run_turn` + `stream_turn`) |
-| `options.py` | `build_agent(settings)` — assembles every capability into one `DataMindAgent` |
-| `prompts.py` | Grouped-tool system prompt builder |
+| `agent/base.py` | Shared `AgentEvent`, `AgentLoopConfig`, and `AgentLoopProtocol` contracts |
+| `agent/loop_native.py` | Protocol-neutral default loop with hooks, budgets, evidence, and receipts |
+| `agent/loop_openai.py` | OpenAI wire path; reuses native execution semantics |
+| `agent/loop_sdk.py` | Optional Claude Agent SDK + CCR / local MCP adapter |
 
-### The loop in one page
+Each loop exposes `run_turn`, `stream_turn`, and the same events: `text`, `tool_use`, `tool_result`, `error`, and `done`. HTTP SSE, CLI, and Python callers therefore do not depend on a provider-specific event model.
 
-```
-    ┌─ user_message ─┐
-    │                │
-    ▼                │
-┌────────────────────▼───────────────────────────────────┐
-│ messages.create(system, tools, messages)                │
-└────────────────┬────────────────────────────────────────┘
-                 │
-        ┌────────▼────────────┐
-        │ stop_reason?        │
-        └────────┬────────────┘
-                 │
-       ┌─────────┴─────────┐
-       │                   │
-    tool_use           end_turn
-       │                   │
-       ▼                   └──► return final text
-┌──────────────────┐
-│ for each tool:   │
-│   on_tool_start  │
-│   spec.handler() │
-│   on_tool_end    │
-│   append result  │
-└───────┬──────────┘
-        │
-        └──► loop (max_tool_turns)
-```
+## Core layer
 
-Hooks (`on_tool_start`, `on_tool_end`) are where audit logging and permission checks plug in.
+`datamind.core` contains stable cross-capability contracts rather than concrete backends:
 
-## Config layer — `datamind.config`
+| Protocol / contract | Responsibility |
+|---|---|
+| `TextModelClient` / `ToolCallingModelClient` | Text completion and tool calling |
+| `EmbeddingProvider` | Text and query embeddings |
+| `VectorStore` / `Retriever` | Vector storage and retrieval |
+| `GraphStore` | Triple writes, entity search, and traversal |
+| `DatabaseDialect` | Schema, read-only execution, and destructive-query detection |
+| `MemoryStore` | Save, recall, forget, and namespace management |
+| `DataSurface` / `ToolAccess` | Surface types and role authority |
+| `SourceRef` / `Evidence` | Sources and traceable support |
+| `IngestReceipt` / `InferenceResult` | Write receipts and inference results |
 
-Nested `pydantic-settings`; every section is a distinct `BaseModel`:
+`ToolSpec(name, description, input_schema, handler)` is the smallest unit understood by a loop. The complete catalogue is built once; role registries filter it by metadata, and `assert_access` performs a final check before dispatch. `RequestContext`, the error hierarchy, structured logging, and HookChain also live in core so CLI, HTTP, and SDK callers share the same semantics.
 
-```
+## Five data surfaces
+
+| Surface | Writes | Reads | Default implementation |
+|---|---|---|---|
+| **KB / RAG** | Files, text, and chunks | Hybrid retrieval and source filters | Chroma + BM25 + RRF |
+| **Database** | CSV, records, and schema | Read-only SQL, schema, and NL2SQL | SQLAlchemy + SQLite; MySQL optional |
+| **Graph** | Triples and extracted text | Entities, neighbors, and multi-hop traversal | NetworkX + JSON |
+| **Skills** | `SKILL.md`, manifests, and code skills | SOP search and safe utilities | Profile skills + calculator/unit conversion |
+| **Memory** | Facts, preferences, decisions, and turns | Scope-aware recall / list | Rolling short-term + SQLite long-term |
+
+`capabilities/ingest` connects KB, DB, and Graph writes to one receipt ledger. `capabilities/hooks` is the governance layer shared by every surface. Each capability follows the `service.py`, `tools.py`, and `providers/` boundary, so replacing a backend does not require changing the agent loop.
+
+## Configuration and profiles
+
+```text
 Settings
-├── llm          # api_base / api_key / model / fallback_model / timeout_s
+├── llm          # api_base / api_key / protocol / model / fallback_*
 ├── embedding    # provider / api_base / api_key / model / batch_size
 ├── retrieval    # strategy / top_k / chunk_size / chunk_overlap / rerank
 ├── graph        # backend / dsn / embed_entities
 ├── db           # dialect / dsn / read_only / row_limit / query_timeout_s
 ├── memory       # backend / dsn / short_term_turns / long_term_enabled
-├── data         # profile / base_dir  (auto-derived data_dir / storage_dir)
-└── logging      # level
+├── data         # profile / base_dir → data_dir + storage_dir
+├── agent        # backend / max_turns / token and wall-clock budgets
+└── hooks        # enabled / destructive_sql / path_allowlist / audit_log
 ```
 
-Env variables use double-underscore delimiting: `DATAMIND__DB__DSN=mysql+pymysql://...`. Switching profile:
+Environment variables use double underscores for nesting:
 
 ```bash
-DATAMIND__DATA__PROFILE=customer_a python -m datamind chat
+DATAMIND__AGENT__BACKEND=native
+DATAMIND__LLM__PROTOCOL=anthropic
+DATAMIND__DATA__PROFILE=customer_a
 ```
 
-switches both `data/profiles/customer_a/` and `storage/customer_a/` in lockstep.
+Switching profiles moves both `data/profiles/<profile>/` and `storage/<profile>/` in lockstep. A profile is a data namespace, not authentication; public deployments still need authentication, TLS, rate limiting, and network isolation at the gateway or reverse proxy.
 
-## What replaced what (v0.1 → v0.2)
+## Stability boundary
 
-| v0.1 | v0.2 | Note |
-|---|---|---|
-| `core/bootstrap.py` global `AppState` | `agent.options.build_agent()` | Stateless, composable |
-| `modules/rag/retriever.py` | `capabilities/kb/providers/{simple,multi_query,hybrid}_retriever.py` | Three strategies, registered, pluggable |
-| `modules/rag/indexer.py` | `capabilities/kb/indexer.py` | Same role, better errors |
-| `modules/database/database.py` | `capabilities/db/{service,providers}.py` | SQLite + MySQL; safeguards |
-| `modules/graphrag/graph_rag.py` | `capabilities/graph/providers/networkx_store.py` | Persists as JSON (not pickle) |
-| `modules/memory/memory.py` | `capabilities/memory/{short_term,service,providers/sqlite_store}.py` | Three-layer + fact extraction |
-| `modules/skills/*` | `capabilities/skills/{loader,service,code_skills}.py` + `.claude/skills/*/SKILL.md` | SDK-style manifests |
-| `server.py` / `main.py` | `datamind/server.py` + `datamind/cli.py` | Real SSE, no globals, `typer` CLI |
+The v1.0.0 stable core is the native backend with local profile storage. SDK/CCR, remote database dialects, and custom providers are integration paths that require validation in the target environment. See the [Stable API](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/STABLE_API.md), [native / SDK support matrix](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SUPPORT_MATRIX.md), [public deployment security boundaries](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SECURITY_BOUNDARIES.md), and [concepts and terminology](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/CONCEPTS.md).
 
-**The old files still exist and still run.** They live side-by-side with the new stack so you can A/B anything.
-
-## Tech stack summary
-
-| Component | Technology | Notes |
-|---|---|---|
-| Agent runtime | `anthropic` SDK + self-written loop | No claude CLI dep |
-| LLM | Anthropic-compatible `/v1/messages` | Streaming, tool_use |
-| Embeddings | OpenAI-compatible `/v1/embeddings` or HF local | `openai_compatible` provider |
-| Vector store | Chroma | `@vector_store_registry.register("chroma")` |
-| Graph | NetworkX with JSON persistence | Neo4j provider is a future plug-in |
-| RDBMS | SQLAlchemy 2.0 | SQLite + MySQL built in |
-| Memory | SQLite + embedding cosine recall | Redis/Postgres future plug-ins |
-| Server | FastAPI + real SSE | `python -m uvicorn datamind.server:app` |
-| CLI | `typer` + `rich` | `python -m datamind ...` |
+The legacy layout remains available for migration and comparison, but it is not part of the v1.0.0 stable API. New integrations should prefer `build_datamind`, `DataMind.ingest/query`, `Evidence`, `IngestReceipt`, and the `core` protocols.
