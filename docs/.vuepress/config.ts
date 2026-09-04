@@ -35,7 +35,7 @@ export default defineUserConfig({
 
   theme: plumeTheme({
     /* GitHub Pages canonical URL for v1.0.0 documentation */
-    hostname: 'https://opendcai.github.io/DataMind-Doc/',
+    hostname: 'https://opendcai.github.io',
 
     /* 文档仓库配置，用于 editLink */
     // docsRepo: '',
