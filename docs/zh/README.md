@@ -8,8 +8,8 @@ config:
     background: tint-plate
     hero:
       name: DataMind
-      tagline: Agent 不只会查数据，还能在推理时把新数据写进去。
-      text: "StoreAgent × RetrieveAgent —— 一个数据面，连接所有来源。"
+      tagline: 面向持续演化 Agent 的数据层
+      text: 在推理过程中沉淀可复用、可验证的上下文。
       actions:
         -
           theme: brand

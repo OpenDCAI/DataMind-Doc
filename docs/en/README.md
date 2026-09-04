@@ -8,8 +8,8 @@ config:
     background: tint-plate
     hero:
       name: DataMind
-      tagline: Agents don't just retrieve. They write new data during inference.
-      text: "StoreAgent × RetrieveAgent — one data plane for every source."
+      tagline: The data layer for evolving agents.
+      text: Capture reusable, verifiable context at inference time.
       actions:
         -
           theme: brand
