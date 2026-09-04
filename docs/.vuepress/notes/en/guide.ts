@@ -15,6 +15,7 @@ export const Guide: ThemeNote = defineNoteConfig({
                 'install',
                 'architecture',
                 'demo',
+                'release',
             ],
         },
         {

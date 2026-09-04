@@ -133,7 +133,7 @@ python -m datamind.scripts.hello_memory
 
 ## 6. Enterprise demo — `hello_enterprise`（推荐重点看）
 
-这是 v0.2 / v0.3 的旗舰演示（v0.3 继续沿用），用一个**中等规模真实数据**的 profile 跑 8 个跨后端复杂问题。
+这是 v1.0.0 的旗舰演示，用一个**中等规模真实数据**的 profile 跑 8 个跨后端复杂问题，覆盖 StoreAgent 写入和 RetrieveAgent 读取。
 
 ### 6.1 一次种好数据
 
@@ -244,8 +244,8 @@ data: {"type": "done", "iterations": 3, "stop_reason": "end_turn"}
 ## 跑整个测试集
 
 ```bash
-pytest datamind/tests/
-# 95 passed in ~0.6s
+pytest
+# 161 passed, 5 skipped — 不打网络
 ```
 
 单测不需要网络——用内存伪 store 和临时 SQLite。真实网关测试放在 `hello_*.py` 冒烟脚本里。

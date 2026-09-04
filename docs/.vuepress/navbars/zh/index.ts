@@ -23,6 +23,11 @@ export const zhNavbar = defineNavbarConfig([
                         link: '/zh/notes/guide/basicinfo/architecture.md',
                         icon: 'material-symbols:auto-transmission-sharp',
                     },
+                    {
+                        text: 'v1.0.0 发布说明',
+                        link: '/zh/notes/guide/basicinfo/release.md',
+                        icon: 'carbon:launch',
+                    },
                 ]
             },
             {

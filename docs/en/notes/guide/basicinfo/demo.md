@@ -139,7 +139,8 @@ from the raw turn "I'm moving to Shenzhen next month and will start jogging in t
 
 ## 6. Enterprise demo — `hello_enterprise` (recommended)
 
-The flagship demo (introduced in v0.2, still used in v0.3): a **medium-sized realistic profile** + 8 cross-backend complex questions.
+The v1.0.0 flagship demo uses a **medium-sized realistic profile** plus eight
+cross-backend questions, covering StoreAgent writes and RetrieveAgent reads.
 
 ### 6.1 Seed once
 
@@ -250,8 +251,8 @@ data: {"type": "done", "iterations": 3, "stop_reason": "end_turn"}
 ## Verify the whole test suite
 
 ```bash
-pytest datamind/tests/
-# 95 passed in ~0.6s
+pytest
+# 161 passed, 5 skipped — no network required
 ```
 
 No network is required for unit tests — they use in-memory fakes and temp SQLite. Live tests are reserved for the `hello_*.py` smokes.

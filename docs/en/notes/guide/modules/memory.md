@@ -25,7 +25,7 @@ Three layers, one service:
 └────────────────────────────────────────────────────┘
 ```
 
-## Three scopes (v0.3)
+## Three scopes (v1.0.0)
 
 Every long-term item carries a `scope` that defines who can see it during recall:
 
@@ -97,7 +97,7 @@ DATAMIND__MEMORY__SHORT_TERM_TURNS=20
 DATAMIND__MEMORY__LONG_TERM_ENABLED=true
 ```
 
-Adding a backend (must satisfy the v0.3 scope-typed `MemoryStore` Protocol):
+Adding a backend (must satisfy the v1.0.0 scope-typed `MemoryStore` Protocol):
 
 ```python
 @memory_registry.register("redis")

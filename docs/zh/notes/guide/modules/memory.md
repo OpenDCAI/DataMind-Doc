@@ -25,7 +25,7 @@ createTime: 2026/03/30 23:42:51
 └────────────────────────────────────────────────────┘
 ```
 
-## 三层 scope（v0.3）
+## 三层 scope（v1.0.0）
 
 每条长期记忆都带一个 `scope` 标签，决定召回时谁能看到：
 
@@ -97,7 +97,7 @@ DATAMIND__MEMORY__SHORT_TERM_TURNS=20
 DATAMIND__MEMORY__LONG_TERM_ENABLED=true
 ```
 
-新增 backend（必须满足 v0.3 scope-typed `MemoryStore` Protocol）：
+新增 backend（必须满足 v1.0.0 scope-typed `MemoryStore` Protocol）：
 
 ```python
 @memory_registry.register("redis")

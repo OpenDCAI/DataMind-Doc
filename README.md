@@ -1,6 +1,11 @@
 # DataMind-Doc
 
-[DataMind](https://github.com/your-org/DataMind) 的文档站点，基于 [VuePress 2](https://vuepress.vuejs.org/) + [vuepress-theme-plume](https://theme-plume.vuejs.press/) 构建。
+The official documentation site for [DataMind](https://github.com/OpenDCAI/DataMind) v1.0.0, built with [VuePress 2](https://vuepress.vuejs.org/) and [vuepress-theme-plume](https://theme-plume.vuejs.press/).
+
+The stable v1.0.0 baseline is the native backend with local profile storage,
+the StoreAgent / RetrieveAgent role boundary, and the Python / HTTP stable API.
+SDK/CCR and remote database adapters are integration paths that need separate
+validation in the target environment.
 
 ## Install
 
@@ -21,45 +26,51 @@ npm run docs:build
 npm run docs:preview
 ```
 
-## 文档结构
+## Documentation structure
 
 ```
 docs/
-├── en/notes/guide/          # 英文文档
-│   ├── basicinfo/           #   简介、安装、架构
-│   ├── modules/             #   RAG、GraphRAG、Database、Skills、Memory
-│   ├── benchmark/           #   测评运行、答案评估
-│   └── advanced/            #   配置说明、数据格式
-├── zh/notes/guide/          # 中文文档（同上镜像结构）
+├── en/notes/guide/          # English documentation
+│   ├── basicinfo/           #   intro, install, architecture, release
+│   ├── modules/             #   RAG, GraphRAG, Database, Skills, Memory
+│   ├── benchmark/           #   benchmark runner and evaluation
+│   └── advanced/            #   configuration and data format
+├── zh/notes/guide/          # Chinese mirror with the same structure
 └── .vuepress/
-    ├── config.ts            # VuePress 主配置
-    ├── plume.config.ts      # 主题配置（热更新）
-    ├── navbars/             # 导航栏配置
-    └── notes/               # 侧边栏配置
+    ├── config.ts            # VuePress site configuration
+    ├── plume.config.ts      # theme configuration
+    ├── navbars/             # navigation configuration
+    └── notes/               # sidebar configuration
 ```
 
-英文和中文文档一一对应，内容保持一致。
+The English and Chinese pages are kept in sync.
 
-## Markdown Frontmatter
+## Markdown frontmatter
 
-每个 Markdown 文件头部的配置：
+Each Markdown page starts with frontmatter:
 
 ```yaml
 ---
-title: 页面标题          # 侧边栏显示的标题
-icon: carbon:idea        # 侧边栏小图标（从 https://icon-sets.iconify.design/ 选取）
-permalink: /zh/guide/... # 永久链接（不能与其他页面重复）
+title: Page title         # title shown in the sidebar
+icon: carbon:idea         # icon from https://icon-sets.iconify.design/
+permalink: /en/guide/... # stable, unique URL
 ---
 ```
 
-## 部署到 GitHub Pages
+## Deploy to GitHub Pages
 
-参见 [VuePress 部署文档](https://vuepress.vuejs.org/guide/deployment.html)。
+`.github/workflows/docs-deploy.yml` builds and deploys the site with GitHub
+Actions on every push to `main`. The public site is
+[opendcai.github.io/DataMind-Doc](https://opendcai.github.io/DataMind-Doc/).
+You can also run the `Deploy Docs` workflow manually.
 
-关键配置：
+Key settings:
 
-1. `docs/.vuepress/config.ts` 中 `base` 设为 `'/DataMind-Doc/'`（或你的 repo 名）
-2. GitHub 仓库 → Settings → Pages → Source 选 `Deploy from a branch` → `gh-pages`
+1. Keep `base` in `docs/.vuepress/config.ts` set to `'/DataMind-Doc/'`.
+2. In repository Settings → Pages, choose `GitHub Actions` as the source.
+3. Keep `hostname` set to the canonical site URL for sitemap / SEO.
+
+The [v1.0.0 release guide](https://opendcai.github.io/DataMind-Doc/en/guide/basicinfo/release/) links to the stable API, support matrix, concepts, and public deployment boundaries.
 
 ## References
 

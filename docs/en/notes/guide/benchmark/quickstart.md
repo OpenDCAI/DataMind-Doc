@@ -7,10 +7,17 @@ createTime: 2026/03/30 23:39:59
 
 # Benchmark
 
-The `benchmark/` package runs concurrent inference against DataMind and collects latency / throughput / accuracy metrics. It was written for the **v0.1 legacy stack** and still works as-is; an equivalent runner targeting the new `datamind.agent.AgentLoop` (v0.2 / v0.3) is planned for a follow-up phase.
+The `benchmark/` package runs concurrent inference against DataMind and collects
+latency / throughput / accuracy metrics. It targets the **v0.1 legacy stack**
+and remains useful for comparing large RAG workloads. The v1.0.0 native/API
+paths are covered by the smoke tests and HTTP contract tests above; a dedicated
+high-throughput runner for the current facade remains on the roadmap.
 
 ::: tip
-Smoke-testing functionality end-to-end for v0.2 / v0.3 is covered by the `hello_<cap>.py` scripts and `pytest datamind/tests/` (133 tests, no network). Use `benchmark/` for measuring throughput and answer accuracy at scale.
+Smoke-testing functionality end-to-end for v1.0.0 is covered by the
+`hello_<cap>.py` scripts, HTTP API tests, and `pytest` (161 passing, 5 optional
+SDK tests skipped; no network). Use `benchmark/` for measuring throughput and
+answer accuracy at scale.
 :::
 
 ## Features
@@ -128,4 +135,6 @@ Accuracy (reference answer contained in response): 36.0%. 2WikiMultiHop is multi
 
 ## Roadmap
 
-A v0.2 / v0.3-native benchmark that calls `AgentLoop.run_turn` / `/api/chat` directly (with real tool_use accounting) is planned. It will share the same JSONL question schema and output format so result files remain interchangeable.
+A v1.x benchmark that calls the stable facade or `/api/chat` directly (with
+real tool-use accounting) is planned. It will share this JSONL question schema
+and output format so existing result files remain interchangeable.

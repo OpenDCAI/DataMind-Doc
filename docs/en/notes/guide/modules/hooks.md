@@ -56,7 +56,7 @@ hook N+1's input.
 
 ## Three built-in hooks
 
-DataMind v0.3 ships with three production hooks. Configure each
+DataMind v1.0.0 ships with three production hooks. Configure each
 independently via `DATAMIND__HOOKS__*`.
 
 ### `PathAllowlistHook`

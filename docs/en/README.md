@@ -8,8 +8,8 @@ config:
     background: tint-plate
     hero:
       name: DataMind
-      tagline: Composable inference-time data framework (v0.3 preview · pip install datamind)
-      text: "KB · Graph · DB · Skills · Memory · Hooks — one agent, every source."
+      tagline: Composable inference-time data framework (v1.0.0 stable · pip install datamind==1.0.0)
+      text: "StoreAgent writes. RetrieveAgent reads. Evidence comes back."
       actions:
         -
           theme: brand
@@ -21,8 +21,8 @@ config:
           link: /en/notes/guide/basicinfo/install.md
         -
           theme: alt
-          text: Github →
-          link: https://github.com/OpenDCAI/DataMind
+          text: v1.0.0 release ↗
+          link: https://github.com/OpenDCAI/DataMind/releases/tag/v1.0.0
   -
     type: features
     features:
@@ -43,11 +43,11 @@ config:
         icon: carbon:tools
         details: "SDK-style .claude/skills/<name>/SKILL.md manifests for knowledge skills; safe Python code skills (calculator, unit conversion, …)."
       -
-        title: Memory (scope-typed v0.3)
+        title: Memory (scope-typed)
         icon: carbon:ai-status-in-progress
         details: Three scopes (global / profile / session) plus typed kinds. Short-term rolling window + SQLite long-term with cosine recall + live LLM fact extraction.
       -
-        title: Hooks (sandboxed v0.3)
+        title: Hooks (sandboxed)
         icon: carbon:security
         details: HookChain intercepts every tool call — Allow / Deny / AskUser / Rewrite. Built-in destructive-SQL gate, path allow-list, tamper-evident audit log.
 ---

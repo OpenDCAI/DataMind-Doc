@@ -34,8 +34,8 @@ pip install 'datamind[dev]'           # pytest + build + twine
 
 `pip install datamind` 会一并 ship 运行时代码、浏览器 UI（`datamind/static/app.html`）和默认 skill catalog（`code-review`、`db-ops-sop`），`datamind chat` 和 `python -m uvicorn datamind.server:app` 都不用 clone 仓库就能跑。
 
-::: warning v0.3.0 是试用版（preview）
-架构和核心能力已经可用，但 BYOP HTTP sinks 和 MySQL/Postgres 端到端验证仍在做。生产环境用户请先在隔离 profile 试点再切真实数据。
+::: tip v1.0.0 稳定基线
+`native` backend + 本地 profile 存储是 v1.0.0 的稳定 core。SDK/CCR、远程数据库适配器和自定义 provider 属于 integration 路径，发布前请在目标环境单独验证。公网部署还必须加认证、授权、TLS、限流和网络隔离，详见[安全边界](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SECURITY_BOUNDARIES.md)。
 :::
 
 ### 从源码安装（开发者）
@@ -130,7 +130,9 @@ python -m uvicorn datamind.server:app --host 127.0.0.1 --port 8000
 | `GET /api/health` | 存活 + 配置快照 |
 | `GET /api/tools` | 所有已注册工具的名字、描述、JSON schema |
 | `POST /api/ask` | 非流式 |
+| `POST /api/store` | 调用 StoreAgent 写入数据并返回 receipts |
 | `POST /api/chat` | **真 SSE 流** — `text` / `tool_use` / `tool_result` / `done` 事件 |
+| `POST /api/upload` | 保存上传文件并返回建议的 StoreAgent 提示（上传本身不会自动入库） |
 | `POST /api/kb/reindex` | 重建 KB |
 | `GET /api/kb/documents` | 当前 profile 下的文档清单 |
 | `GET /api/memory/{namespace}` | 查看某 namespace 的记忆 |
@@ -205,9 +207,11 @@ INFO agent_loop_backend backend=sdk ccr=http://127.0.0.1:13456
 ## 8. 跑单测
 
 ```bash
-pytest datamind/tests/
-# 95 passed in ~0.6s — 不打网络
+pytest
+# 161 passed, 5 skipped — 不打网络
 ```
+
+完整的 [native / SDK 支持矩阵](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SUPPORT_MATRIX.md) 和 [稳定 API 合约](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/STABLE_API.md) 记录了 v1.x 的兼容边界。
 
 ## v0.1 仍可用
 

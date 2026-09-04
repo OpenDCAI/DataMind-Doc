@@ -21,12 +21,12 @@ export default defineUserConfig({
     '/en/': {
       title: 'DataMind Documentation',
       lang: 'en-US',
-      description: 'An all-in-one intelligent assistant powered by LlamaIndex, integrating RAG, GraphRAG, NL2SQL, Skills, and Memory.',
+      description: 'DataMind v1.0.0: a local-first inference-time data plane with StoreAgent, RetrieveAgent, RAG, Graph, Database, Skills, and Memory.',
     },
     '/zh/': {
       title: 'DataMind 中文文档',
       lang: 'zh-CN',
-      description: '基于 LlamaIndex 的一体化智能助手，集成 RAG、GraphRAG、NL2SQL、Skills 和 Memory。',
+      description: 'DataMind v1.0.0：local-first inference-time data plane，提供 StoreAgent、RetrieveAgent、RAG、Graph、Database、Skills 和 Memory。',
     },
   },
 
@@ -34,8 +34,8 @@ export default defineUserConfig({
   shouldPrefetch: false, // 站点较大，页面数量较多时，不建议启用
 
   theme: plumeTheme({
-    /* 添加您的部署域名, 有助于 SEO, 生成 sitemap */
-    // hostname: 'https://your_site_url',
+    /* GitHub Pages canonical URL for v1.0.0 documentation */
+    hostname: 'https://opendcai.github.io/DataMind-Doc/',
 
     /* 文档仓库配置，用于 editLink */
     // docsRepo: '',
@@ -194,4 +194,3 @@ export default defineUserConfig({
     }),
   ]
 })
-

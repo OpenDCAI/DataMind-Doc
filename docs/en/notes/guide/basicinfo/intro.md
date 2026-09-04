@@ -7,8 +7,10 @@ createTime: 2026/03/23 00:55:54
 
 # Introduction
 
-**DataMind** is a unified retrieval agent that wires six knowledge
-capabilities into one Claude-powered tool registry:
+**DataMind v1.0.0** is a local-first inference-time data plane: agents can
+write, organize, and read data while they are answering a request. It connects
+five typed data surfaces to one agent system, with separate StoreAgent and
+RetrieveAgent roles for write and read authority:
 
 | Capability | What it does | Default backend |
 |---|---|---|
@@ -16,34 +18,43 @@ capabilities into one Claude-powered tool registry:
 | **Graph** | Entity lookup and multi-hop traversal | NetworkX (JSON-persisted) |
 | **Database** | Natural language → SQL query | SQLAlchemy (SQLite / MySQL / Postgres) |
 | **Skills** | Markdown SOPs + safe code skills (calculator, unit conversion, ...) | `.claude/skills/<name>/SKILL.md` |
-| **Memory** *(v0.3 scope-typed)* | Short-term buffer + SQLite long-term with cosine recall; three scopes (global / profile / session) for multi-tenant isolation | SQLite + embeddings |
-| **Hooks** *(v0.3 sandboxed)* | Intercept every tool call: Allow / Deny / AskUser / Rewrite; built-in destructive-SQL gate, path allow-list, tamper-evident audit log | `HookChain` + Merkle audit |
+| **Memory** *(scope-typed)* | Short-term buffer + SQLite long-term with cosine recall; three scopes (global / profile / session) for multi-tenant isolation | SQLite + embeddings |
+
+Every surface passes through shared **Hooks**: Allow / Deny / AskUser / Rewrite,
+destructive-SQL confirmation, path allow-listing, and tamper-evident audit logs.
 
 The **agent loop** picks tools on its own, recovers from errors, and
 streams output throughout. You don't hard-code which question routes to
 which capability.
 
-## What changed since v0.1
+## The v1.0.0 stable baseline
 
 v0.1 was a LlamaIndex `FunctionAgent` with everything wired into a global
-`AppState`. v0.3 keeps the same six capabilities but reshapes the system
-around three structural ideas:
+`AppState`. v1.0.0 reshapes the system into an auditable data plane:
 
 - **Protocol + Registry kernel.** Each capability is defined by a small
   Protocol; concrete implementations register themselves under a name.
   Adding a new SQL dialect / embedding provider / retriever is a
   single-file change with zero impact on the core.
+- **Two explicit roles.** StoreAgent exposes write tools and returns receipts;
+  RetrieveAgent exposes read/utility tools and returns evidence. The boundary
+  is enforced in code before dispatch.
 - **Pluggable agent loop.** Two interchangeable backends (`native` over
-  the Anthropic SDK, `sdk` over `claude-agent-sdk` + CCR) share one tool
-  registry and one SSE event format. Switch with one env variable.
+  Anthropic or OpenAI-compatible protocols, `sdk` over `claude-agent-sdk` +
+  CCR) share one tool registry and one SSE event format. Switch with one
+  environment variable.
 - **Real SSE streaming**, not the v0.1 "character-sliced" simulation.
   Per-request `RequestContext` propagates `trace_id` through every tool
   call and audit record.
 
-v0.3 adds two flagship features on top: **scope-typed Memory** (multi-
-tenant isolation without a separate deployment per customer) and
-**hook-interposed dispatch** (destructive-SQL confirmation, path
-allow-list, tamper-evident audit log).
+The stable core is the `native` backend with local profile storage. SDK/CCR,
+remote database dialects, and custom providers are integration paths that must
+be validated in the target environment. See the release references:
+
+- [Stable API](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/STABLE_API.md)
+- [Native / SDK support matrix](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SUPPORT_MATRIX.md)
+- [Public deployment security boundaries](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SECURITY_BOUNDARIES.md)
+- [Concepts and terminology](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/CONCEPTS.md)
 
 The legacy v0.1 entry points (`main.py` / `server.py` / `modules/`)
 remain in the repo for side-by-side comparison and are still runnable.
@@ -66,7 +77,7 @@ datamind/
 ├── scripts/            # one hello_*.py per capability — real smoke tests
 ├── cli.py              # `python -m datamind ...`
 ├── server.py           # FastAPI + real SSE
-└── tests/              # 133 passing tests, no network
+└── tests/              # 161 passing, 5 optional SDK tests skipped
 ```
 
 Every capability ships with a `hello_<cap>.py` that runs against a real

@@ -23,6 +23,11 @@ export const enNavbar = defineNavbarConfig([
                         link: '/en/notes/guide/basicinfo/architecture.md',
                         icon: 'material-symbols:auto-transmission-sharp',
                     },
+                    {
+                        text: 'v1.0.0 release',
+                        link: '/en/notes/guide/basicinfo/release.md',
+                        icon: 'carbon:launch',
+                    },
                 ]
             },
             {

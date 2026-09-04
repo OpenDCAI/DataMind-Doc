@@ -51,7 +51,7 @@ class MyHook:
 
 ## 三个内置 hook
 
-v0.3 自带三个生产可用的 hook，分别独立通过 `DATAMIND__HOOKS__*` 控制。
+v1.0.0 自带三个生产可用的 hook，分别独立通过 `DATAMIND__HOOKS__*` 控制。
 
 ### `PathAllowlistHook`
 

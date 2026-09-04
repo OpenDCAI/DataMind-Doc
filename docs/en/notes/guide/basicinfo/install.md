@@ -34,10 +34,12 @@ pip install 'datamind[dev]'           # pytest + build + twine
 
 `pip install datamind` ships the runtime code, the browser UI (`datamind/static/app.html`), and a default skill catalog (`code-review`, `db-ops-sop`) so `datamind chat` and `python -m uvicorn datamind.server:app` work without cloning the repo.
 
-::: warning v0.3.0 is a preview release
-Architecture and core capabilities are functional, but BYOP HTTP sinks
-and end-to-end MySQL/Postgres validation are still in progress. Pilot
-in an isolated profile before pointing at production data.
+::: tip v1.0.0 stable baseline
+The `native` backend with local profile storage is the v1.0.0 stable core.
+SDK/CCR, remote database adapters, and custom providers are integration paths
+that must be validated in your target environment. Public deployment also
+requires authentication, authorization, TLS, rate limits, and network
+isolation; see the [security boundaries](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SECURITY_BOUNDARIES.md).
 :::
 
 ### From source (developers)
@@ -133,7 +135,9 @@ Or talk to the API directly:
 | `GET /api/health` | Liveness + config snapshot |
 | `GET /api/tools` | Every registered tool's name, description, and JSON schema |
 | `POST /api/ask` | Non-streaming convenience |
+| `POST /api/store` | Call StoreAgent to write data and return receipts |
 | `POST /api/chat` | **Real SSE stream** of `text` / `tool_use` / `tool_result` / `done` events |
+| `POST /api/upload` | Save an uploaded file and return suggested StoreAgent prompts (upload alone does not ingest) |
 | `POST /api/kb/reindex` | Rebuild the KB |
 | `GET /api/kb/documents` | Docs under the active profile |
 | `GET /api/memory/{namespace}` | Peek at a memory namespace |
@@ -208,9 +212,11 @@ Switch back to native any time with `DATAMIND__AGENT__BACKEND=native` (or unset 
 ## 8. Run the test suite
 
 ```bash
-pytest datamind/tests/
-# 95 passed in ~0.6s — no network required
+pytest
+# 161 passed, 5 skipped — no network required
 ```
+
+The [native / SDK support matrix](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/SUPPORT_MATRIX.md) and [stable API contract](https://github.com/OpenDCAI/DataMind/blob/v1.0.0/docs/STABLE_API.md) define the v1.x compatibility boundary.
 
 ## Legacy v0.1 still works
 

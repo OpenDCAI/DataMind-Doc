@@ -18,8 +18,8 @@ import { enNotes, zhNotes } from './notes/index.js'
  * @see https://theme-plume.vuejs.press/config/basic/
  */
 export default defineThemeConfig({
-  logo: '/DataMind-logo.png',
-  logoDark: '/DataMind-logo.png',
+  logo: '/DataMind-logo.svg',
+  logoDark: '/DataMind-logo.svg',
   appearance: true,
 
   social: [
@@ -55,18 +55,18 @@ export default defineThemeConfig({
   locales: {
     '/en/': {
       profile: {
-        avatar: '/DataMind-logo.png',
+        avatar: '/DataMind-logo.svg',
         name: 'DataMind',
-        description: 'All-in-one intelligent assistant with RAG, GraphRAG, NL2SQL, Skills, and Memory.',
+        description: 'v1.0.0 inference-time data plane with StoreAgent, RetrieveAgent, RAG, Graph, Database, Skills, and Memory.',
       },
       navbar: enNavbar,
       notes: enNotes,
     },
     '/zh/': {
       profile: {
-        avatar: '/DataMind-logo.png',
+        avatar: '/DataMind-logo.svg',
         name: 'DataMind',
-        description: '一体化智能助手：RAG、GraphRAG、NL2SQL、Skills、Memory',
+        description: 'v1.0.0 inference-time data plane：StoreAgent、RetrieveAgent、RAG、Graph、Database、Skills、Memory',
       },
       navbar: zhNavbar,
       notes: zhNotes,

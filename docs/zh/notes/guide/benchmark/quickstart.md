@@ -7,10 +7,15 @@ createTime: 2026/03/30 23:43:20
 
 # Benchmark
 
-`benchmark/` 包提供并发推理测评，调用 Python API（不走 HTTP）。它是为 **v0.1 legacy 栈** 写的，现在仍能用；面向 v0.2 / v0.3 新 `datamind.agent.AgentLoop` 的等价 runner 会在后续 Phase 加上。
+`benchmark/` 包提供并发推理测评，调用 Python API（不走 HTTP）。它面向
+**v0.1 legacy 栈**，仍适合做大规模 RAG 工作负载对比；v1.0.0 的 native/API
+路径由上面的冒烟脚本和 HTTP 合约测试覆盖。针对当前 facade 的高吞吐 runner
+仍在 v1.x roadmap 中。
 
 ::: tip
-v0.2 / v0.3 的端到端功能验证由 `hello_<cap>.py` 冒烟脚本和 `pytest datamind/tests/`（133 个测试，不依赖网络）覆盖。`benchmark/` 用来大规模跑吞吐 / 准确率。
+v1.0.0 的端到端功能验证由 `hello_<cap>.py` 冒烟脚本、HTTP API 测试和
+`pytest`（161 个通过，5 个可选 SDK 测试跳过；不依赖网络）覆盖。
+`benchmark/` 用来大规模跑吞吐 / 准确率。
 :::
 
 ## 特性
@@ -128,4 +133,5 @@ SIMILARITY_TOP_K=5 python -m benchmark.run --questions data/bench/2wiki.jsonl
 
 ## Roadmap
 
-面向 v0.2 / v0.3 新 `AgentLoop` 的 benchmark（直接调 `AgentLoop.run_turn` / `/api/chat`，准确统计 tool_use）会在后续 Phase 补上。JSONL 题集格式和输出 JSON 格式保持一致，旧结果文件仍可继续用。
+计划增加直接调用稳定 facade 或 `/api/chat` 的 v1.x benchmark，并准确统计
+tool-use。JSONL 题集格式和输出 JSON 格式保持一致，旧结果文件仍可继续用。
